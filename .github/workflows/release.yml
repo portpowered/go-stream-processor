@@ -1,0 +1,34 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GOWORK: 'off'
+      GOPRIVATE: ''
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version-file: go.mod
+      - run: go test -race ./... -timeout 120s
+      - run: go vet ./...
+      - name: Verify public module
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          cd "$(mktemp -d)"
+          go mod init example.com/release-check
+          GOPROXY=https://proxy.golang.org,direct go get "github.com/portpowered/go-stream-processor@$VERSION"
+          go list -m all
+      - name: Publish release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: gh release create "$VERSION" --verify-tag --generate-notes
