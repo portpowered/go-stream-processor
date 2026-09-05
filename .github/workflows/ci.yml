@@ -1,7 +1,11 @@
 name: CI
 on:
   push:
+    branches: [main]
   pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -26,6 +30,10 @@ jobs:
       - name: Check formatting and module metadata
         shell: bash
         run: |
-          test -z "$(gofmt -l .)"
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
           go mod tidy
           git diff --exit-code -- go.mod go.sum
